@@ -1,8 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
+
+	"github.com/msksgm/go-realworld-msksgm-copy/server"
 )
 
 type config struct {
@@ -12,7 +14,9 @@ type config struct {
 
 func main() {
 	cfg := envConfig()
-	fmt.Println(cfg)
+
+	srv := server.NewServer()
+	log.Fatal(srv.Run(cfg.port))
 }
 
 func envConfig() config {
