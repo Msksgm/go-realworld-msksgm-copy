@@ -8,14 +8,17 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/msksgm/go-realworld-msksgm-copy/conduit"
+	"github.com/msksgm/go-realworld-msksgm-copy/postgres"
 )
 
 type Server struct {
-	server *http.Server
-	router *mux.Router
+	server      *http.Server
+	router      *mux.Router
+	userService conduit.UserService
 }
 
-func NewServer() *Server {
+func NewServer(db *postgres.DB) *Server {
 	s := Server{
 		server: &http.Server{
 			WriteTimeout: 5 * time.Second,

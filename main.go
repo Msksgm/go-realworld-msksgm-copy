@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/msksgm/go-realworld-msksgm-copy/postgres"
 	"github.com/msksgm/go-realworld-msksgm-copy/server"
 )
 
@@ -15,7 +16,12 @@ type config struct {
 func main() {
 	cfg := envConfig()
 
-	srv := server.NewServer()
+	db, err := postgres.Open(cfg.dbURI)
+	if err != nil {
+		log.Fatalf("cannot open database: %v", err)
+	}
+
+	srv := server.NewServer(db)
 	log.Fatal(srv.Run(cfg.port))
 }
 
