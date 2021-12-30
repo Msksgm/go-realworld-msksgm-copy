@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -30,6 +29,7 @@ func NewServer(db *postgres.DB) *Server {
 
 	s.routes()
 
+	s.userService = postgres.NewUserService(db)
 	s.server.Handler = s.router
 
 	return &s
@@ -45,10 +45,9 @@ func (s *Server) Run(port string) error {
 }
 
 func healthCheck() http.Handler {
-	fmt.Println()
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		resp := M{
-			"status":  "availabel",
+			"status":  "available",
 			"message": "healthy",
 			"data":    M{"hello": "beautiful"},
 		}
