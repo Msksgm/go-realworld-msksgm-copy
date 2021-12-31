@@ -32,6 +32,14 @@ type UserFilter struct {
 	Offset int
 }
 
+type UserPatch struct {
+	Email        *string `json:"email"`
+	Username     *string `json:"username"`
+	Image        *string `json:"image"`
+	Bio          *string `json:"bio"`
+	PasswordHash *string `json:"-" db:"password_hash"`
+}
+
 func (u *User) SetPassword(password string) error {
 	hashBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -56,4 +64,6 @@ type UserService interface {
 	CreateUser(context.Context, *User) error
 
 	UserByEmail(ctx context.Context, email string) (*User, error)
+
+	UpdateUser(context.Context, *User, UserPatch) error
 }

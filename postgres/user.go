@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/msksgm/go-realworld-msksgm-copy/conduit"
@@ -62,6 +63,28 @@ func (us *UserService) Authenticate(ctx context.Context, email, password string)
 	}
 
 	return user, nil
+}
+
+func (us *UserService) UpdateUser(ctx context.Context, user *conduit.User, patch conduit.UserPatch) error {
+	tx, err := us.db.BeginTxx(ctx, nil)
+	if err != nil {
+		log.Println(err)
+		return conduit.ErrInternal
+	}
+
+	defer tx.Rollback()
+
+	if err := updateUser(ctx, tx, user, patch); err != nil {
+		log.Println(err)
+		return conduit.ErrInternal
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Println(err)
+		return conduit.ErrInternal
+	}
+
+	return nil
 }
 
 func createUser(ctx context.Context, tx *sqlx.Tx, user *conduit.User) error {
@@ -129,6 +152,50 @@ func findUsers(ctx context.Context, tx *sqlx.Tx, filter conduit.UserFilter) ([]*
 	}
 
 	return users, nil
+}
+
+func updateUser(ctx context.Context, tx *sqlx.Tx, user *conduit.User, patch conduit.UserPatch) error {
+	if v := patch.Bio; v != nil {
+		user.Bio = *v
+	}
+
+	if v := patch.Email; v != nil {
+		user.Email = *v
+	}
+
+	if v := patch.PasswordHash; v != nil {
+		user.PasswordHash = *v
+	}
+
+	if v := patch.Image; v != nil {
+		user.Image = *v
+	}
+
+	if v := patch.Username; v != nil {
+		user.Image = *v
+	}
+
+	args := []interface{}{
+		user.Username,
+		user.Email,
+		user.Bio,
+		user.Image,
+		user.PasswordHash,
+		user.ID,
+	}
+
+	query := `
+	UPDATE users 
+	SET username = $1, email = $2, bio = $3, image = $4, password_hash = $5, updated_at = NOW()
+	WHERE id = $6
+	RETURNING updated_at`
+
+	if err := tx.QueryRowxContext(ctx, query, args...).Scan(&user.UpdatedAt); err != nil {
+		log.Printf("error updating record: %v", err)
+		return conduit.ErrInternal
+	}
+
+	return nil
 }
 
 func getFollowers(ctx context.Context, tx *sqlx.Tx, user *conduit.User) ([]*conduit.User, error) {

@@ -19,5 +19,6 @@ func (s *Server) routes() {
 	authApiRoutes.Use(s.authenticate(MustAuth))
 	{
 		authApiRoutes.Handle("/user", s.getCurrentUser()).Methods("GET")
+		authApiRoutes.Handle("/user", s.updateUser()).Methods("PUT", "PATCH")
 	}
 }

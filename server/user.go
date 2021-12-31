@@ -116,3 +116,51 @@ func (s *Server) getCurrentUser() http.HandlerFunc {
 		writeJSON(w, http.StatusOK, M{"user": user})
 	}
 }
+
+func (s *Server) updateUser() http.HandlerFunc {
+	type Input struct {
+		User struct {
+			Email    *string `json:"email,omitempty"`
+			Username *string `json:"username,omitempty"`
+			Bio      *string `json:"bio,omitempty"`
+			Image    *string `json:"image,omitempty"`
+			Password *string `json:"password,omitempty"`
+		} `json:"user,omitempty" validate:"required"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		input := &Input{}
+
+		if err := readJSON(r.Body, &input); err != nil {
+			badRequestError(w)
+			return
+		}
+
+		if err := validate.Struct(input.User); err != nil {
+			validationError(w, err)
+			return
+		}
+
+		ctx := r.Context()
+		user := userFromContext(ctx)
+		patch := conduit.UserPatch{
+			Username: input.User.Username,
+			Bio:      input.User.Bio,
+			Email:    input.User.Email,
+			Image:    input.User.Image,
+		}
+
+		if v := input.User.Password; v != nil {
+			user.SetPassword(*v)
+		}
+
+		err := s.userService.UpdateUser(ctx, user, patch)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+
+		user.Token = userTokenFromContext(ctx)
+
+		writeJSON(w, http.StatusOK, M{"user": user})
+	}
+}

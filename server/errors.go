@@ -37,6 +37,10 @@ func serverError(w http.ResponseWriter, err error) {
 	errorResponse(w, http.StatusInternalServerError, "internal error")
 }
 
+func badRequestError(w http.ResponseWriter) {
+	errorResponse(w, http.StatusUnprocessableEntity, "unable to process request")
+}
+
 func invalidUserCredentialsError(w http.ResponseWriter) {
 	msg := "invalid authentication credentials"
 	errorResponse(w, http.StatusUnauthorized, msg)
