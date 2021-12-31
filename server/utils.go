@@ -48,3 +48,24 @@ func generateUserToken(user *conduit.User) (string, error) {
 
 	return tokenString, nil
 }
+
+func parseUserToken(tokenStr string) (userClaims M, err error) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, conduit.ErrUnAuthorized
+		}
+
+		return hmacSampleSecret, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+
+	if !ok {
+		return nil, nil
+	}
+
+	return M(claims), nil
+}

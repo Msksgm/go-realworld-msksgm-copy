@@ -38,6 +38,11 @@ func serverError(w http.ResponseWriter, err error) {
 }
 
 func invalidUserCredentialsError(w http.ResponseWriter) {
+	msg := "invalid authentication credentials"
+	errorResponse(w, http.StatusUnauthorized, msg)
+}
+
+func invalidAuthTokenError(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", "Token")
 	msg := "invalid or missing authentication token"
 	errorResponse(w, http.StatusUnauthorized, msg)

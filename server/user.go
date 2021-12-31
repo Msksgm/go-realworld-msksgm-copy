@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -101,6 +102,17 @@ func (s *Server) loginUser() http.HandlerFunc {
 
 		user.Token = token
 
+		writeJSON(w, http.StatusOK, M{"user": user})
+	}
+}
+
+func (s *Server) getCurrentUser() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		user := userFromContext(ctx)
+		user.Token = userTokenFromContext(ctx)
+
+		fmt.Println(ctx)
 		writeJSON(w, http.StatusOK, M{"user": user})
 	}
 }
