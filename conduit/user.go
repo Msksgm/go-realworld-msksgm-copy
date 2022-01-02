@@ -21,6 +21,13 @@ type User struct {
 	UpdatedAt    time.Time `json:"-" db:"updated_at"`
 }
 
+type Profile struct {
+	Username  string `json:"username"`
+	Bio       string `json:"bio"`
+	Image     string `json:"image"`
+	Following bool   `json:"following"`
+}
+
 var AnonymousUser User
 
 type UserFilter struct {
@@ -56,6 +63,10 @@ func (u User) VerifyPassword(password string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
 
 	return err == nil
+}
+
+func (u *User) IsAnonymous() bool {
+	return u == &AnonymousUser
 }
 
 type UserService interface {
