@@ -53,3 +53,35 @@ func (s *Server) createArticle() http.HandlerFunc {
 		writeJSON(w, http.StatusOK, M{"article": article})
 	}
 }
+
+func (s *Server) listArticles() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		filter := conduit.ArticleFilter{}
+
+		if v := query.Get("author"); v != "" {
+			filter.AuthorUsername = &v
+		}
+
+		if v := query.Get("tag"); v != "" {
+			filter.Tag = &v
+		}
+
+		if v := query.Get("favorited"); v != "" {
+			filter.FavoritedBy = &v
+		}
+
+		articles, err := s.articleService.Articles(r.Context(), filter)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		user := userFromContext(r.Context())
+		for _, a := range articles {
+			a.SetAuthorProfile(user)
+			a.Favorited = a.UserHasFavorite(user)
+		}
+
+		writeJSON(w, http.StatusOK, M{"articles": articles})
+	}
+}

@@ -108,6 +108,10 @@ func createUser(ctx context.Context, tx *sqlx.Tx, user *conduit.User) error {
 	return nil
 }
 
+func findUserByID(ctx context.Context, tx *sqlx.Tx, id uint) (*conduit.User, error) {
+	return findOneUser(ctx, tx, conduit.UserFilter{ID: &id})
+}
+
 func findOneUser(ctx context.Context, tx *sqlx.Tx, filter conduit.UserFilter) (*conduit.User, error) {
 	us, err := findUsers(ctx, tx, filter)
 

@@ -22,6 +22,26 @@ type Article struct {
 	UpdatedAt      time.Time `json:"updatedAt" db:"updated_at"`
 }
 
+func (a *Article) SetAuthorProfile(currentUser *User) {
+	a.AuthorProfile = &Profile{
+		Username: a.Author.Username,
+		Bio:      a.Author.Bio,
+		Image:    a.Author.Image,
+	}
+
+	a.AuthorProfile.Following = currentUser.IsFollowing(currentUser)
+}
+
+func (a *Article) UserHasFavorite(currentUser *User) bool {
+	for _, fav := range a.FavoritedBy {
+		if fav.ID == currentUser.ID {
+			return true
+		}
+	}
+
+	return false
+}
+
 type ArticleFilter struct {
 	ID             *uint
 	Title          *string
@@ -38,6 +58,7 @@ type ArticleFilter struct {
 
 type ArticleService interface {
 	CreateArticle(context.Context, *Article) error
+	Articles(context.Context, ArticleFilter) ([]*Article, error)
 }
 
 func (a *Article) AddTags(_tags ...string) {

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/msksgm/go-realworld-msksgm-copy/conduit"
@@ -31,6 +32,22 @@ func (as *ArticleService) CreateArticle(ctx context.Context, article *conduit.Ar
 	}
 
 	return tx.Commit()
+}
+
+func (as *ArticleService) Articles(ctx context.Context, filter conduit.ArticleFilter) ([]*conduit.Article, error) {
+	tx, err := as.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer tx.Rollback()
+
+	articles, err := findArticles(ctx, tx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	return articles, tx.Commit()
 }
 
 func createArticle(ctx context.Context, tx *sqlx.Tx, article *conduit.Article) error {
@@ -63,6 +80,61 @@ func createArticle(ctx context.Context, tx *sqlx.Tx, article *conduit.Article) e
 	}
 
 	return nil
+}
+
+func findArticles(ctx context.Context, tx *sqlx.Tx, filter conduit.ArticleFilter) ([]*conduit.Article, error) {
+	where, args := []string{}, []interface{}{}
+	argPosition := 0 // used to set correct postgres argument enums i.e $1, $2
+
+	if v := filter.ID; v != nil {
+		argPosition++
+		where, args = append(where, fmt.Sprintf("id = $%d", argPosition)), append(args, *v)
+	}
+
+	if v := filter.AuthorID; v != nil {
+		argPosition++
+		where, args = append(where, fmt.Sprintf("author_id = $%d", argPosition)), append(args, *v)
+	}
+
+	if v := filter.Slug; v != nil {
+		argPosition++
+		where, args = append(where, fmt.Sprintf("slug = $%d", argPosition)), append(args, *v)
+	}
+
+	if v := filter.Title; v != nil {
+		argPosition++
+		where, args = append(where, fmt.Sprintf("title = $%d", argPosition)), append(args, *v)
+	}
+
+	if v := filter.Tag; v != nil {
+		argPosition++
+		clause := `id IN (select article_id from article_tags where tag_id in (
+			   select id from tags where name = $%d)
+		    )`
+		where, args = append(where, fmt.Sprintf(clause, argPosition)), append(args, *v)
+	}
+
+	if v := filter.AuthorUsername; v != nil {
+		argPosition++
+		clause := "author_id = (select id from users where username = $%d)"
+		where, args = append(where, fmt.Sprintf(clause, argPosition)), append(args, *v)
+	}
+
+	if v := filter.FavoritedBy; v != nil {
+		argPosition++
+		clause := `id IN (select article_id from favorites where user_id = (
+			select id from users where username = $%d LIMIT 1)
+			)`
+		where, args = append(where, fmt.Sprintf(clause, argPosition)), append(args, *v)
+	}
+
+	query := "SELECT * from articles" + formatWhereClause(where) + " ORDER BY created_at DESC"
+	articles, err := queryArticles(ctx, tx, query, args...)
+	if err != nil {
+		return articles, err
+	}
+
+	return articles, nil
 }
 
 func setArticleTags(ctx context.Context, tx *sqlx.Tx, article *conduit.Article, tags []string) error {
@@ -100,4 +172,64 @@ func associateArticleWithTag(ctx context.Context, tx *sqlx.Tx, article *conduit.
 	}
 
 	return nil
+}
+
+func attachArticleAssociations(ctx context.Context, tx *sqlx.Tx, article *conduit.Article) error {
+	tags, err := findArticleTags(ctx, tx, article)
+	if err != nil {
+		return fmt.Errorf("cannot find article tags: %w", err)
+	}
+
+	article.Tags = tags
+
+	user, err := findUserByID(ctx, tx, article.AuthorID)
+	if err != nil {
+		return fmt.Errorf("cannot find article author: %w", err)
+	}
+
+	article.Author = user
+
+	query := `SELECT * from users WHERE id IN (
+		SELECT user_id FROM favorites WHERE article_id = $1
+	)`
+
+	favorites := make([]*conduit.User, 0)
+
+	if err := findMany(ctx, tx, &favorites, query, article.ID); err != nil {
+		return err
+	}
+
+	article.FavoritedBy = favorites
+	article.FavoritesCount = int64(len(favorites))
+
+	return nil
+}
+
+func findArticleTags(ctx context.Context, tx *sqlx.Tx, article *conduit.Article) ([]*conduit.Tag, error) {
+	query := `
+	SELECT * from tags WHERE id IN (
+		SELECT tag_id FROM article_tags WHERE article_id = $1
+	)
+	`
+	tags := make([]*conduit.Tag, 0)
+	if err := findMany(ctx, tx, &tags, query, article.ID); err != nil {
+		return tags, err
+	}
+	return tags, nil
+}
+
+func queryArticles(ctx context.Context, tx *sqlx.Tx, query string, args ...interface{}) ([]*conduit.Article, error) {
+	articles := make([]*conduit.Article, 0)
+	err := findMany(ctx, tx, &articles, query, args...)
+	if err != nil {
+		return articles, err
+	}
+
+	for _, article := range articles {
+		if err := attachArticleAssociations(ctx, tx, article); err != nil {
+			return nil, err
+		}
+	}
+
+	return articles, nil
 }

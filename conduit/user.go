@@ -28,6 +28,15 @@ type Profile struct {
 	Following bool   `json:"following"`
 }
 
+func (me *User) IsFollowing(user *User) bool {
+	for _, u := range user.Followers {
+		if me.Username == u.Username {
+			return true
+		}
+	}
+	return false
+}
+
 var AnonymousUser User
 
 type UserFilter struct {
