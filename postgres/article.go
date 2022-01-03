@@ -50,6 +50,21 @@ func (as *ArticleService) Articles(ctx context.Context, filter conduit.ArticleFi
 	return articles, tx.Commit()
 }
 
+func (as *ArticleService) ArticleFeed(ctx context.Context, user *conduit.User, filter conduit.ArticleFilter) ([]*conduit.Article, error) {
+	tx, err := as.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	articles, err := getArticlesFromUserFollowings(ctx, tx, user, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	return articles, tx.Commit()
+}
+
 func createArticle(ctx context.Context, tx *sqlx.Tx, article *conduit.Article) error {
 	query := `
 	INSERT INTO articles (title, body, description, author_id, slug) 
@@ -216,6 +231,16 @@ func findArticleTags(ctx context.Context, tx *sqlx.Tx, article *conduit.Article)
 		return tags, err
 	}
 	return tags, nil
+}
+
+func getArticlesFromUserFollowings(ctx context.Context, tx *sqlx.Tx, user *conduit.User, filter conduit.ArticleFilter) ([]*conduit.Article, error) {
+	query := `
+	SELECT * from articles as a WHERE author_id IN (
+		SELECT following_id from followings WHERE follower_id = $1 
+	) ORDER BY a.created_at DESC
+	` + formatLimitOffset(filter.Limit, filter.Offset)
+
+	return queryArticles(ctx, tx, query, user.ID)
 }
 
 func queryArticles(ctx context.Context, tx *sqlx.Tx, query string, args ...interface{}) ([]*conduit.Article, error) {

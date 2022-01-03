@@ -59,6 +59,7 @@ type ArticleFilter struct {
 type ArticleService interface {
 	CreateArticle(context.Context, *Article) error
 	Articles(context.Context, ArticleFilter) ([]*Article, error)
+	ArticleFeed(context.Context, *User, ArticleFilter) ([]*Article, error)
 }
 
 func (a *Article) AddTags(_tags ...string) {

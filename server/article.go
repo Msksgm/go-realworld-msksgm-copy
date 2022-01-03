@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gosimple/slug"
 	"github.com/msksgm/go-realworld-msksgm-copy/conduit"
@@ -80,6 +81,27 @@ func (s *Server) listArticles() http.HandlerFunc {
 		for _, a := range articles {
 			a.SetAuthorProfile(user)
 			a.Favorited = a.UserHasFavorite(user)
+		}
+
+		writeJSON(w, http.StatusOK, M{"articles": articles})
+	}
+}
+
+func (s *Server) articleFeed() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		filter := conduit.ArticleFilter{}
+		limit, _ := strconv.Atoi(query.Get("limit"))
+		filter.Limit = limit
+		ctx := r.Context()
+		articles, err := s.articleService.ArticleFeed(ctx, userFromContext(ctx), filter)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+
+		for _, a := range articles {
+			a.SetAuthorProfile(userFromContext(ctx))
 		}
 
 		writeJSON(w, http.StatusOK, M{"articles": articles})
